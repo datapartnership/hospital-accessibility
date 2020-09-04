@@ -1,4 +1,6 @@
 import requests, json, os, pickle
+import networkx as nx
+import GOSTnets as gn
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from time import sleep
@@ -18,128 +20,13 @@ import pycrs
 import geoviews as gv
 import hvplot.pandas
 import random
-import GOSTnets as gn
-import networkx as nx
+from utility import *
+from raster_ops import *
+from mapbox import *
 
 
-
-mapbox_tokens = []
-mapbox_tokens.append(os.environ.get("MAPBOX_TOKEN", "NO_TOKEN"))
-
-
-def plot_df(df, geo_col = 'geometry'):
-    """
-    Function plots dataframe of interest's geometry on base map
-    df - dataframe
-    """
-    dfp = gpd.GeoDataFrame(df, geometry = df[geo_col])
-    dfp = dfp.set_crs(df.crs)
-    dfp = dfp.to_crs("EPSG:3857")
-    ax = dfp.plot(figsize=(10, 10), alpha=0.8)
-    ctx.add_basemap(ax)
-    ax.set_axis_off()
-
-
-
-def plot_df_single(df, geo_col = 'geometry', hover_cols = None, alpha=0.5, color=None):
-    """
-    Function maps data frame of interest on an interactive map with zooming features and hover info
-    df-dataframe
-    geo_col-geometry type to be plotted 
-    hover_cols=column data that should appear when hovering over data point
-    """
-    dfp = gpd.GeoDataFrame(df, geometry = df[geo_col])
-    dfp = dfp.set_crs(df.crs)
-    if color == None:
-        colors = ['green', 'blue', 'orange', 'red', 'yellow', 'pink', 'cyan', 'magenta']
-        color = colors[random.randint(0, len(colors) - 1)]
-    plot =  dfp.hvplot(
-        geo=True, 
-        frame_width=500, 
-        frame_height=500,
-        alpha=alpha, color=color, hover_cols=hover_cols,legend='top')
-
-    tiles = gv.tile_sources.OSM()
-    return tiles * plot
-    
-    
-
-
-def pickle_data(df, pickle_path):
-     with open (pickle_path, "wb") as handle:
-            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print("Pickled data")
-    
-    
-def unpickle_data(pickle_path):
-    with open (pickle_path, "rb") as handle:
-            data = pickle.load(handle)
-            print(f"Unpickled data at {pickle_path}: \n Rows: {data.shape};")
-            return data
-
-
-def _get_pop(map_file,left_x,top_y,window,plot=False):
-    """
-    get_pop(raster filename,left_x,top_y,window,plot=False)
-    
-    Given a raster file, and row,cols ranges,
-    return the lonlat of the ranges, nancount, and the nunsum
-    
-    Optionally plot the raster window [False]
-    """
-    right_x,bottom_y = left_x + window, top_y + window
-    
-    with rasterio.open(map_file) as src:
-        left_lon, top_lat = src.xy(top_y,left_x )
-        right_lon, bottom_lat = src.xy(bottom_y, right_x )
-        center_lon , center_lat = (right_lon + left_lon)/2., (top_lat+bottom_lat)/2.
-                             #Window(col_off, row_off, width, height)
-        w = src.read(1, window=Window(left_x, top_y, window, window))
-        if plot:
-            plot.imshow(w, cmap='pink')
-            plt.show()
-        nancount=np.count_nonzero(~np.isnan(w))
-        count = np.size(w)
-        tot_pop=np.nansum(w)
-    if count == 0:
-        return {} #Out of bounds
-    if tot_pop == 0 or window < 1: #Mark the window to furhter split.
-        split=False
-    else:
-        split=True
-    out={'window':window,
-         'left_x':left_x,
-         'right_x':right_x,
-         'top_y':top_y,
-         'bottom_y':bottom_y,
-         'left_lon':left_lon, 
-         'top_lat':top_lat, 
-         'right_lon':right_lon,
-         'bottom_lat':bottom_lat,
-         'center_lon':center_lon , 
-         'center_lat':center_lat,
-         'count': count,
-         'nancount':nancount,
-         'tot_pop':tot_pop,
-         'split': split}
-    return out
-
-def _split(map_file,origin,plot=False):
-    """
-    Split a window row in 4 parts, and return new rows results
-    """
-    origins=pd.DataFrame()
-    
-    window=int(origin.window/2)
-
-    for left_x in np.arange(origin.left_x,origin.right_x,window):
-        for top_y in np.arange(origin.top_y,origin.bottom_y,window):
-            out=_get_pop(map_file,left_x,top_y,window,plot=plot)
-            if out != {}:
-                origins=origins.append([out])
-    return origins
-
-def get_origins(places, population_file, window_size = 50, use_pickle = False, do_pickle_result = True):
+  
+def get_origins(places, population_file, window_size = 50, use_pickle = False, do_pickle_result = True, pickle_region_name = ""):
     
     """
     Function extracts origins points from raster population map-based origin data 
@@ -151,7 +38,7 @@ def get_origins(places, population_file, window_size = 50, use_pickle = False, d
     
     # Immediately return pickled data if requested
     if use_pickle == True:
-        with open ("./data/origins.pickle", "rb") as handle:
+        with open (f"../data/interim/origins_{pickle_region_name}.pickle", "rb") as handle:
             origins = pickle.load(handle)
         print(f"Origins:{origins.shape};")
         return origins
@@ -162,7 +49,7 @@ def get_origins(places, population_file, window_size = 50, use_pickle = False, d
     with rasterio.open(population_file) as src:
         for left_x in np.arange(0,src.width,window):
             for top_y in np.arange(0,src.height,window):
-                out=_get_pop(population_file,left_x,top_y,window,plot=False)
+                out=get_pop(population_file,left_x,top_y,window,plot=False)
                 if out != {}:
                     origins=origins.append([out])
             print("%i/%i\r"%(left_x,src.width),end="")
@@ -184,7 +71,7 @@ def get_origins(places, population_file, window_size = 50, use_pickle = False, d
         print("%i/%i\r"%(i+1,olen),end="")
         if origins.iloc[i,origins.columns.get_loc('split')] == True:
             origins.iloc[i,origins.columns.get_loc('split')]='done'
-            s = _split(population_file,origins.iloc[i])
+            s = split(population_file,origins.iloc[i])
             origins=origins.append(s,sort=False)
     print("done.")
     print("We now have %i regions of min size %i, %i will be split in next round"%\
@@ -229,12 +116,14 @@ def get_origins(places, population_file, window_size = 50, use_pickle = False, d
     
     # Pickle generated origins if requested
     if do_pickle_result == True:
-        with open ("./data/origins.pickle", "wb") as handle:
+        with open ("../data/interim/origins_{pickle_region_name}.pickle", "wb") as handle:
             pickle.dump(tr_origins, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
         print("Pickled origins")
     
     return(tr_origins)
+
+
 
 def origins_snap_osm(origins, net_pickle_path):
     """
@@ -325,303 +214,7 @@ def n_closest_geodetic(origins, destinations, n_keep):
     
     return pd.concat(dest_list).reset_index(drop=True)
     
-    
-def get_travel_times_mapbox(origins, 
-                            destinations, 
-                            mode, 
-                            d_name, 
-                            dest_id_col=False,
-                            n_keep = 2,
-                            num_retries = 2, 
-                            starting_token_index = 0,
-                            use_pickle = False,
-                            do_pickle_result =True,
-                            batch_limit=None):
-    """
-    
-    """
-    
-    # Immediately return pickled data if requested
-    pickle_name = f"./data/mb_origins_{d_name}_{mode}"
-    if use_pickle == True:
-        return unpickle_data(picke_name)
-    
 
-    #tries = 0
-    token_index = starting_token_index
-    #while tries <= num_retries:
-    origins = mapbox_matrix_API(
-        token = mapbox_tokens[token_index],
-        origins = origins,
-        destinations = destinations,
-        mode = mode,
-        d_name = d_name,
-        dest_id_col = dest_id_col,
-        n_keep = n_keep,
-        batch_limit = batch_limit
-    )
-    origins[f"closest_{d_name}_geom"] = gpd.points_from_xy(
-        origins.loc[:, f"closest_{d_name}_geom_lon_x"],
-        origins.loc[:, f"closest_{d_name}_geom_lat_y"]
-    )
-    origins["mb_snapped_dest_geom"] = gpd.points_from_xy(
-        origins.loc[:, "mb_snapped_dest_lon_x"],
-        origins.loc[:, "mb_snapped_dest_lat_y"]
-    )
-    origins["mb_snapped_src_geom"] = gpd.points_from_xy(
-        origins.loc[:, "mb_snapped_src_lon_x"],
-        origins.loc[:, "mb_snapped_src_lat_y"]
-    )
-    
-     # Pickle generated origins if requested
-    if do_pickle_result == True:
-        pickle_data(origins, pickle_name)
-     #   tries += 1
-
-    return origins
-
-
-def mapbox_matrix_API(token, 
-                      origins, 
-                      destinations, 
-                      mode='driving', 
-                      d_name='poi',
-                      dest_id_col='osmid',
-                      n_keep=3, 
-                      batch_limit=None):
-    """
-    Given a geopandas set of origins and destinations, return the origins with extra columns
-    with the closest destination in minutes given the mode of transportation for each origin.
-    
-    Also returns the snap distance to the origin (geodetic distance from origin point to closest road)
-    Keywords:
-    do_all [False]: By default avoid repeating work that has been done.
-    
-    """
-
-    MAPBOX_TOKEN = token
-    osrm_server="https://api.mapbox.com/directions-matrix/v1"
-    modes=['driving-traffic', 'driving', 'cycling', 'walking']
-    if mode not in modes:
-        raise ValueError("Mode should be one of [driving-traffic, driving, cycling, walking]")
-
-    url = f"{osrm_server}/mapbox/{mode}"
-
-    max_coordinates = 24
-    
-    if mode == "driving-traffic":
-        max_coordinates = 10
-
-
-    # Limit Coordinates Total = 25
-    # Since limit is 25, that means that # sources + # destinations = 24
-
-    batch_size = int(np.floor(max_coordinates / (n_keep + 1)))
-
-    # Append proper columns
-    for c in [
-        f"hrs_to_{d_name}",
-        f"mins_to_{d_name}",
-        f"dist_to_{d_name}",
-        f"closest_{d_name}_id",
-        f"closest_{d_name}_name",
-        f"closest_{d_name}_geom_lon_x",
-        f"closest_{d_name}_geom_lat_y",
-        f"closest_{d_name}_geodetic_dist",
-        "mb_snapped_dest_name",
-        "mb_snapped_dest_dist",
-        "mb_snapped_dest_lon_x",
-        "mb_snapped_dest_lat_y",
-        "mb_snapped_src_name",
-        "mb_snapped_src_dist",
-        "mb_snapped_src_lon_x",
-        "mb_snapped_src_lat_y"
-
-    ]:
-        origins[c] = -1
-
-
-    
-
-    # Out of the unprocessed origins, get the next batch to process
-    # Get origins where time to hospital is -1 or unprocessed
-    queued_origins = origins.loc[origins[f"hrs_to_{d_name}"] == -1, :]
-    queued_origins_size = queued_origins.shape[0]
-    
-    for iteration in np.arange(queued_origins_size / batch_size):
-        if ((batch_limit is not None) and int(iteration) >= batch_limit):
-            break
-
-        queued_origins = origins.loc[origins[f"hrs_to_{d_name}"] == -1, :]
-        print(f"""
-        Process batch # {int(iteration)} 
-        Remaining: {queued_origins.shape[0]}
-        """)
-        #origins_to_process = queued_origins.iloc[int(batch_size*iteration):].head(batch_size).copy()
-        
-
-        origins_to_process = queued_origins.head(batch_size).copy()
-    
-
-        relevant_destinations = n_closest_geodetic(origins_to_process, destinations, n_keep)
-
-        # Safety check
-        if (len(origins_to_process) + len(relevant_destinations)) > max_coordinates:
-            raise ValueError("Over limit for Mapbox API")
-
-        origins_url = origins_to_process[['geometry']].copy().reset_index(drop=False)
-        dest_url = relevant_destinations[['geometry']].copy().reset_index(drop=False)
-        origins_url['type'] = 'origin'
-        dest_url['type'] = 'dest'
-
-        od = pd.concat([origins_url, dest_url]).reset_index(drop=True)
-
-        origins_coords = ";".join([",".join([str(row.centroid.x),str(row.centroid.y)]) for row in od.loc[od['type'] =='origin','geometry']])
-        relevant_dest_coords=";".join([",".join([str(row.centroid.x),str(row.centroid.y)]) for row in od.loc[od['type'] == 'dest', 'geometry']])
-
-
-        origin_coords_indices = ';'.join([str(x) for x in od.loc[od['type'] == 'origin', :].index.tolist()])
-        dest_coords_indices = ';'.join([str(x) for x in od.loc[od['type'] == 'dest', :].index.tolist()])
-
-
-        full_url = f"{url}/{origins_coords};{relevant_dest_coords}.json?sources={origin_coords_indices}&destinations={dest_coords_indices}&annotations=distance,duration&access_token={MAPBOX_TOKEN}"
-
-        print(full_url)
-
-        response = requests.get(full_url)
-        response.raise_for_status()
-
-
-        response = json.loads(response.text)
-    
-    
-        durations = response['durations']
-        distances = response['distances']
-        mb_dests = response['destinations']
-        sources = response['sources']
-
-
-        for ix, dur_set in enumerate(distances):
-            if len(dur_set) != len(relevant_destinations):
-                raise ValueError("Incorrect response from Mapbox")
-                
-            
-            #Look up what the index is of this origin
-            origin_ix = int(od.loc[:, "index"][ix])
-            #print(origin_ix)
-            
-            
-            
-
-            # Clean the dataset for any non-routes, keeping index
-            dur_set = list(map(lambda x: x if x else 99999999999999, dur_set))
-
-            travel_time_to_closest_dest = min(dur_set)
-            closest_dest_ix = np.argmin(dur_set)
-            distance_to_closest_dest = distances[ix][closest_dest_ix]
-            closest_dest_osm = relevant_destinations.iloc[closest_dest_ix]
-            closest_dest_mb = mb_dests[closest_dest_ix]
-            source_mb = sources[ix]
-
-
-
-
-            # Closest OSM Destination
-            origins_to_process.loc[origin_ix,  f'hrs_to_{d_name}'] = ((travel_time_to_closest_dest / 60) / 60)
-            origins_to_process.loc[origin_ix,  f'mins_to_{d_name}'] = (travel_time_to_closest_dest / 60)
-            origins_to_process.loc[origin_ix, f'dist_to_{d_name}'] = distance_to_closest_dest
-
-            origins_to_process.loc[origin_ix, f"closest_{d_name}_id"] = closest_dest_osm[dest_id_col]
-            origins_to_process.loc[origin_ix, f"closest_{d_name}_name"] = closest_dest_osm['name']
-            origins_to_process.loc[origin_ix, f"closest_{d_name}_geodetic_dist"] = closest_dest_osm['distance_to_or']
-            origins_to_process.loc[origin_ix, f"closest_{d_name}_geom_lon_x"] = closest_dest_osm['geometry'].x
-            origins_to_process.loc[origin_ix, f"closest_{d_name}_geom_lat_y"] = closest_dest_osm['geometry'].y
-
-
-            # Closest MB Destination
-            origins_to_process.loc[origin_ix, f"mb_snapped_dest_name"] = closest_dest_mb['name']
-            origins_to_process.loc[origin_ix, f"mb_snapped_dest_dist"] = closest_dest_mb['distance']
-            origins_to_process.loc[origin_ix, f"mb_snapped_dest_lon_x"] = closest_dest_mb['location'][0]
-            origins_to_process.loc[origin_ix, f"mb_snapped_dest_lat_y"] = closest_dest_mb['location'][1]
-
-            # Closest Source
-            origins_to_process.loc[origin_ix, f"mb_snapped_src_name"] = source_mb['name']
-            origins_to_process.loc[origin_ix, f"mb_snapped_src_dist"] = source_mb['distance']
-            origins_to_process.loc[origin_ix, f"mb_snapped_src_lon_x"] = source_mb['location'][0]
-            origins_to_process.loc[origin_ix, f"mb_snapped_src_lat_y"] = source_mb['location'][1]
-
-
-
-
-            
-            #dest_geom = relevant_destinations.loc[:, "geometry"][closest_dest_ix]
-            #origins_to_process.loc[origin_ix, f"closest_{d_name}_geometry"] = dest_geom
-
-
-        # Get the new stuff into origins
-        origins.loc[origins_to_process.index, :] = origins_to_process.loc[:,:].copy()
-
-    
-    queued_origins = origins.loc[origins[f"hrs_to_{d_name}"] == -1, :]
-    queued_origins_size = queued_origins.shape[0]
-    
-    print(f"There are still {queued_origins_size} unprocessed origins")
-    return origins
-
-
-def mapbox_analysis(mode,origins,destinations):
-    
-    """
-    Given origins, destinations and filtered destinations conducts analysis on travel distane for origin-destination pairs 
-    """
-    
-        
-    # Temp
-    #failed_data = origins.loc[origins.t_hospital == -1, :]
-    #origins = origins.loc[origins.t_hospital != -1, :].copy()
-    #failed_data = failed_data.reset_index(drop=True)
-    #failed_data = failed_data.loc[failed_data.index != 1, :]
-    #origins = pd.concat([origins, failed_data]).reset_index(drop = True)
-    #origins.shape
-    
-    #Data Formatting 
-    #origins.to_file("./data/origins.geojson", driver="GeoJSON")
-    #destinations.to_file("./data/dest.geojson", driver="GeoJSON")
-    #o = gpd.read_file("./data/origins.geojson")
-    #h = gpd.read_file("./data/dest.geojson")
-    #o.head()
-    
-    o = origins.copy()
-    h = destinations.copy()
-    
-    #Plotting 
-    #%matplotlib inline
-    plt.figure()
-    o['hrs_to_hosp_or_clinic'].plot.hist(mode, alpha=0.7,bins=1000,cumulative=False,density=False,log=False,logx=False,weights=o['tot_pop'])
-    plt.xlim((0,2))
-    plt.title(mode)
-    plt.ylabel('Population 1e7')
-    plt.xlabel('Distance to closest: Hospital')
-    plt.show()
-        
-
-def plot_access(origins,destinations,tmax):
-    """
-    Given origins, with travel time and distance data, and destinations plots an interactive map of population grids 
-    that are further than tmax hours away from nearest destination
-    
-    origins - data frame with travel time and distance data and population data
-    destinations - data frame
-    tmax - travel time threshold in hours 
-    """
-    o = origins.copy()
-    h = destinations.copy()
-    o_above = o[(o['hrs_to_hosp_or_clinic']>tmax)]
-
-    map= plot_df_single(o_above, 'geo_grid', color = 'blue', alpha = 0.8, hover_cols=['tot_pop']) \
-        * plot_df_single(h, 'geometry', color='red', alpha = 0.4)
-    
-    return map
 
 def biplot(origins,destinations, mode, t_max,xlim=False):
     """
@@ -674,36 +267,4 @@ def biplot(origins,destinations, mode, t_max,xlim=False):
     #plt.tight_layout()
     plt.show();
 
-def mask (population_file, boundary_df, outputfile):
-    """
-    Clips a raster file based off of the boundary of interest and saves as a tif file by the name outputfile
-    population_file - raster file
-    boundary_df - data frame of administrative boundary polygon 
-    output_file - string name of output fie saving location and name
-    """
-    data=rasterio.open(population_file)
-    
-    #generating a bbox using the max and min bounds of our polygon
-    bbox = box(
-    minx = boundary_df.bounds.loc[0,"minx"],
-    miny = boundary_df.bounds.loc[0,"miny"],
-    maxx = boundary_df.bounds.loc[0,"maxx"],
-    maxy = boundary_df.bounds.loc[0,"maxy"]
-    )
 
-    geo=gpd.GeoDataFrame({'geometry':bbox}, index=[0],crs=bounds.crs)
-    
-    _plot_df(geo)
-
-    geo=[json.loads(geo.to_json())['features'][0]['geometry']]
-
-    #mask and output file
-    with rasterio.open(population_file) as src:
-        out_image, out_transform = rasterio.mask.mask(src, geo, crop=True)
-        out_meta = src.meta
-        out_meta.update({"driver": "GTiff",
-                     "height": out_image.shape[1],
-                     "width": out_image.shape[2],
-                     "transform": out_transform})
-    with rasterio.open(outputfile, "w", **out_meta) as dest:
-        dest.write(out_image)
