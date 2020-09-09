@@ -1,6 +1,8 @@
 # Start from a core stack version
 FROM jupyter/scipy-notebook:6d42503c684f
 
+COPY . /home/jovyan/work/
+
 #USER root
 #
 #
