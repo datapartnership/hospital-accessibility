@@ -4,7 +4,6 @@ FROM jupyter/scipy-notebook:latest
 USER root
 
 
-
 RUN apt-get update \
     && apt-get install software-properties-common -y \
     && apt-get install gdal-bin -y && apt-get install libgdal-dev -y \
@@ -20,12 +19,12 @@ USER $NB_ID
 RUN export CPLUS_INCLUDE_PATH=/usr/include/gdal && export C_INCLUDE_PATH=/usr/include/gdal
 
 RUN pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') && \
-    pip install pyrasterframes==0.8.5 && \
+    pip install pyrasterframes==0.8.5
 
 # Install the Dask dashboard
-RUN pip install dask_labextension ; \
-    jupyter labextension install -y --clean \
-    dask-labextension
+# RUN pip install dask_labextension ; \
+#    jupyter labextension install -y --clean \
+#    dask-labextension
 
 RUN pip install 'affine==2.3.0' \
     'argon2-cffi==20.1.0' \
