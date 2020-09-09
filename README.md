@@ -8,6 +8,10 @@ To measure health accessibility, we focus on travel times to the nearest health 
 
 To test our framework in various settings, we use national health and demographic survey data to focus on regions with high health indicators and a region with low health indicators in both countries. For Indonesia, we chose East Java (high health indicators) and Papua (low health indicators). For Philippines, we focus on National Capital Region or NCR (high health indicators) and Bangsamoro Autonomous Muslim Mindanao or BARMM (low health indicators).  
 
+![](https://github.com/datapartnership/hospital-accessibility/raw/master/reports/vis/idn_drv.png)
+
+![](https://github.com/datapartnership/hospital-accessibility/raw/master/reports/vis/phl_drv.png)
+
 # Table of contents
 - [Project Title](#project-title)
 - [Table of contents](#table-of-contents)
