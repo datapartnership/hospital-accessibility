@@ -1,5 +1,5 @@
 # Start from a core stack version
-FROM jupyter/scipy-notebook:latest
+FROM jupyter/scipy-notebook:6d42503c684f
 
 USER root
 
@@ -25,6 +25,8 @@ RUN pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') &
 # RUN pip install dask_labextension ; \
 #    jupyter labextension install -y --clean \
 #    dask-labextension
+
+#RUN pip install --no-cache-dir notebook==5.*
 
 RUN pip install 'affine==2.3.0' \
     'argon2-cffi==20.1.0' \
