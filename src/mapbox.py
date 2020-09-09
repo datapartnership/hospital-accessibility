@@ -190,7 +190,6 @@ def mapbox_matrix_API(token,
 
         full_url = f"{url}/{origins_coords};{relevant_dest_coords}.json?sources={origin_coords_indices}&destinations={dest_coords_indices}&annotations=distance,duration&access_token={MAPBOX_TOKEN}"
 
-        print(full_url)
 
         response = requests.get(full_url)
         response.raise_for_status()
