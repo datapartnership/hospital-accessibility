@@ -3,12 +3,24 @@ FROM jupyter/scipy-notebook:latest
 
 USER root
 
+
+
 RUN apt-get update \
+    && apt-get install software-properties-common -y \
+    && apt-get install gdal-bin -y && apt-get install libgdal-dev -y \
     && apt-get install -y libproj-dev proj-data proj-bin libgeos-dev libspatialindex-dev  \
+    && apt-get install -y osmctools \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+    
 
 USER $NB_ID
+
+
+RUN export CPLUS_INCLUDE_PATH=/usr/include/gdal && export C_INCLUDE_PATH=/usr/include/gdal
+
+RUN pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') && \
+    pip install pyrasterframes==0.8.5 && \
 
 # Install the Dask dashboard
 RUN pip install dask_labextension ; \
@@ -21,6 +33,7 @@ RUN pip install 'affine==2.3.0' \
     'backcall==0.2.0' \
     'bleach==3.1.5' \
     'bokeh==2.1.1' \
+    'boltons' \
     'Cartopy==0.18.0' \
     'certifi==2020.6.20' \
     'cffi==1.14.1' \
@@ -45,7 +58,8 @@ RUN pip install 'affine==2.3.0' \
     'fsspec==0.8.0' \
     'geographiclib==1.50' \
     'geopandas==0.8.1' \
-    'geopy==2.0.0' \
+    #'geopy==2.0.0' \ #TODO GOSTNets needs an update for this to work
+    'geopy==1.22.0' \
     'geoviews==1.8.1' \
     'GOSTnets==1.0.1' \
     'HeapDict==1.0.1' \
