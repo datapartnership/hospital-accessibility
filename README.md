@@ -82,13 +82,12 @@ All of the modules are installed inside the docker container, and that is where 
 ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
 │
 │
-├── src                <- Source code for use in this project.
-│   ├── __init__.py    <- Makes src a Python module
-│   ├── functions.py   <- Functions for running analysis
-│   ├── mapbox.py      <- Mapbox specific functions
-│   ├── raster_ops.py  <- Raster helper functions
-│   └── utility.py     <- Various utility functions
-│
+└─src                <- Source code for use in this project.
+  ├── __init__.py    <- Makes src a Python module
+  ├── functions.py   <- Functions for running analysis
+  ├── mapbox.py      <- Mapbox specific functions
+  ├── raster_ops.py  <- Raster helper functions
+  └── utility.py     <- Various utility functions
 ```
 
 # Contribute
