@@ -1,5 +1,7 @@
 # Hospital Accessibility Analysis
 
+A full article and description is published on the [UN World Data Forum](https://unstats.un.org/unsd/undataforum/blog/planning-for-equitable-access-to-health-infrastructure/)
+
 Indonesia and the Philippines are archipelagos, where geographic and administrative boundaries are similar. The collection of islands is home to different concentrations of ethnic, cultural, linguistic, and socioeconomic groups, with an imbalanced distribution of health facilities and physicians.  
 
 Through conversations with experts on the ground, we understood that health facility records are largely incomplete and on paper. By using a combination of public and private sector data, we aimed for a more comprehensive understanding of health facility accessibility.  
