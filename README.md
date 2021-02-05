@@ -14,37 +14,38 @@ To test our framework in various settings, we use national health and demographi
 
 ![](https://github.com/datapartnership/hospital-accessibility/raw/master/reports/vis/phl_drv.png)
 
-# Table of contents
+## Table of contents
 - [Project Title](#project-title)
 - [Table of contents](#table-of-contents)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Contribute](#contribute)
 
-# Installation
+## Installation
 [(Back to top)](#table-of-contents)
 
-## Basics
+### Basics
 Clone the code to your machine using the standard Git clone command. If you have SSH keys setup the command is:
 ```
 git clone git@github.com:datapartnership/hospital-accessibility.git
 ```
 
-## Docker
-You will need to have Docker and docker-compose installed on your system to run the code. 
+### Docker
+You will need to have Docker and docker-compose installed on your system to run the code.
 
-## Install Docker
+### Install Docker
 * For Mac: https://store.docker.com/editions/community/docker-ce-desktop-mac
 * For Windows: https://store.docker.com/editions/community/docker-ce-desktop-windows
 * For Linux: Go to this page and choose the appropriate install for your Linux distro: https://www.docker.com/community-edition
 
-## Mapbox Token
+### Mapbox Token
 * Head over to [Mapbox](https://mapbox.com) and grab your token.  
 * Copy the `.env.example` file to `.env`
 * In the `.env` file, insert the Mapbox Token in line 3
 
+> Note: This project was supported by the [Development Data Partnership](https://datapartnership.org), through which we received a donation from Mapbox to use its services.
 
-# Usage
+## Usage
 [(Back to top)](#table-of-contents)
 
 ## Starting the docker container and entering Jupyter:
@@ -55,7 +56,6 @@ You will need to have Docker and docker-compose installed on your system to run 
 ![](https://s3.amazonaws.com/files.maksimpecherskiy.com/2020-09-09_10-58.png)
 
 * Once you pull up Jupyter, all of the code is inside the `/work` folder.
-
 
 ## Dev Environment
 After you started the Docker container, your development environment will look like this:
@@ -96,11 +96,17 @@ All of the modules are installed inside the docker container, and that is where 
   └── utility.py     <- Various utility functions
 ```
 
-# Contribute
+## Contribute
 [(Back to top)](#table-of-contents)
 
 If you have questions or want to improve the code, please submit an issue.  
 
 If this was useful, please let us know by submitting an issue as well!
 
+## Acknowledgments
 
+This project was supported by [Development Data Partnership](https://datapartnership.org).
+
+## License
+
+[Apache License 2.0](LICENSE)
