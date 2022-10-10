@@ -21,6 +21,8 @@ import geoviews as gv
 import hvplot.pandas
 import random
 import utility
+from functions import n_closest_geodetic
+
 
 mapbox_tokens = []
 mapbox_tokens.append(os.environ.get("MAPBOX_TOKEN", "NO_TOKEN"))
@@ -204,7 +206,7 @@ def mapbox_matrix_API(token,
         sources = response['sources']
 
 
-        for ix, dur_set in enumerate(distances):
+        for ix, dur_set in enumerate(durations):
             if len(dur_set) != len(relevant_destinations):
                 raise ValueError("Incorrect response from Mapbox")
                 
